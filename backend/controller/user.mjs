@@ -1,4 +1,5 @@
 import userSchema from "../model/userDetail.mjs";
+import doctorSchema from "../model/DoctorModel.mjs";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 //login
@@ -71,6 +72,7 @@ export const registerController = async (req, res, next) => {
 export const authController = async (req, res, next) => {
   try {
     const user = await userSchema.findOne({ _id: req.body.userId });
+    user.password = undefined;
     if (!user) {
       return res.status(200).json({
         message: "user not found",
@@ -80,16 +82,96 @@ export const authController = async (req, res, next) => {
     } else {
       res.status(200).json({
         success: true,
-        data: {
-          name: user.name,
-          email: user.email,
-        },
+        data: user,
       });
     }
   } catch (error) {
     console.log(error);
     res.status(500).json({
       message: "auth error",
+      success: false,
+      error,
+    });
+  }
+};
+
+//apply doctor controller
+
+export const applyDoctorController = async (req, res, next) => {
+  try {
+    const newDoctor = await doctorSchema({ ...req.body, status: "pending" });
+    await newDoctor.save();
+    const adminUser = await userSchema.findOne({ isAdmin: true });
+    const notification = adminUser.notification;
+    notification.push({
+      type: "apply-doctor-request",
+      message: `${newDoctor.firstName} ${newDoctor.lastName} has applied for a doctor Account`,
+      data: {
+        doctorId: newDoctor._id,
+        name: newDoctor.firstName + " " + newDoctor.lastName,
+        onClickPath: "/admin/doctors",
+      },
+    });
+    await userSchema.findByIdAndUpdate(adminUser._id, { notification });
+    res.status(201).json({
+      success: true,
+      message: "Doctor Account Applied Successfully",
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      success: false,
+      error,
+      message: `Error while applying for doctor`,
+    });
+  }
+};
+
+// notification for applied doctor
+
+export const notificationAppliedDoctor = async (req, res, next) => {
+  try {
+    const user = await userSchema.findOne({ _id: req.body.userId });
+    const seennotification = user.seennotification;
+    const notification = user.notification;
+    seennotification.push(...notification);
+    seennotification.reverse();
+    user.notification = [];
+    //user.seennotification = notification;
+    const updateUser = await user.save();
+    res.status(200).json({
+      success: true,
+      message: "all notification marked as read",
+      data: updateUser,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      message: "error in notification",
+      success: false,
+      error,
+    });
+  }
+};
+
+//delete all notification --admin
+
+export const deleteAllNotification = async (req, res, next) => {
+  try {
+    const user = await userSchema.findById({ _id: req.body.userId });
+    user.notification = [];
+    user.seennotification = [];
+    const updateUser = await user.save();
+    updateUser.password = undefined;
+    res.status(200).send({
+      success: true,
+      message: "Notification deleted successfully",
+      data: updateUser,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      message: "error in deleting all app",
       success: false,
       error,
     });

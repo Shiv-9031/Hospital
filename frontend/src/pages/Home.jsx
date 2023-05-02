@@ -1,11 +1,12 @@
 import React from "react";
 import axios from "axios";
+import LayOut from "../component/LayOut";
 export const HomePage = () => {
   //login user data
   const getUserData = async () => {
     try {
       const res = await axios.post(
-        "api/v1/user/getUserData",
+        "http://localhost:8080/api/v1/user/getUserData",
         {},
         {
           headers: {
@@ -24,7 +25,9 @@ export const HomePage = () => {
 
   return (
     <div>
-      <h1>Home page</h1>
+      <LayOut>
+        <h1>Home page</h1>
+      </LayOut>
     </div>
   );
 };
